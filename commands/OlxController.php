@@ -11,6 +11,21 @@ class OlxController extends Controller
 
     protected $_initialParams;
 
+    protected $_informParams = [
+        'notebooks' => [
+            'chatID' => '-1001307607119',
+            'listLink' => 'https://www.olx.ua/elektronika/noutbuki-i-aksesuary/noutbuki/?search%5Bfilter_float_price%3Ato%5D=1000',
+        ],
+        'phones' => [
+            'chatID' => '-1001359657814',
+            'listLink' => 'https://www.olx.ua/elektronika/telefony-i-aksesuary/mobilnye-telefony-smartfony/samsung/?search%5Bfilter_float_price%3Ato%5D=1000',
+        ],
+        'video-cards' => [
+            'chatID' => '-1001483356841',
+            'listLink' => 'https://www.olx.ua/elektronika/kompyutery-i-komplektuyuschie/komplektuyuschie-i-aksesuary/videokarty/?search%5Bfilter_float_price%3Ato%5D=1000',
+        ]
+    ];
+
     public function actionGetUpdates($hash)
     {
         $client = new Client();
@@ -25,24 +40,29 @@ class OlxController extends Controller
         var_dump($r); exit;
     }
 
-    public function actionNotebooks()
+    public function actionInform()
     {
         $this->_initialParams = [
             'hash' => '1089678800:AAF_JRk7mtCudhwzN7RCmAiq9PfO-kBImSg',
-            'chatID' => '-1001307607119',
-            'listLink' => 'https://www.olx.ua/elektronika/noutbuki-i-aksesuary/noutbuki/?search%5Bfilter_float_price%3Ato%5D=1000',
         ];
 
-        $this->_pdo = new \PDO("sqlite:notebooks.db");
-        $this->_pdo->query(
-            'CREATE TABLE if not exists records
-         (
-         id INTEGER PRIMARY KEY,
-         link TEXT
-         )'
-        );
-        $response = $this->loadRecordsList($this->_initialParams['listLink']);
-        $this->processQueue($response);
+        foreach ($this->_informParams as $dbName => $params) {
+            echo "$dbName process ...";
+            $this->_initialParams['chatID'] = $params['chatID'];
+            $this->_initialParams['listLink'] = $params['listLink'];
+
+            $this->_pdo = new \PDO("sqlite:$dbName.db");
+            $this->_pdo->query(
+                'CREATE TABLE if not exists records
+             (
+             id INTEGER PRIMARY KEY,
+             link TEXT
+             )'
+            );
+            $response = $this->loadRecordsList($this->_initialParams['listLink']);
+            $this->processQueue($response);
+        }
+
 
         echo 'done!';
     }
@@ -130,7 +150,7 @@ class OlxController extends Controller
                 continue;
 
             preg_match('|<img class="fleft" src="(.*)" alt="(.*)">|isU', $item, $match);
-            preg_match('|href="(.*)"|isU', $item, $match1);
+            preg_match_all('|href="(.*)"|isU', $item, $match1);
             preg_match('|<p class="lheight16">(.*)</p>|isU', $item, $match2);
 
             if (empty($match[2]))
