@@ -23,6 +23,18 @@ class OlxController extends Controller
         'video-cards' => [
             'chatID' => '-1001483356841',
             'listLink' => 'https://www.olx.ua/elektronika/kompyutery-i-komplektuyuschie/komplektuyuschie-i-aksesuary/videokarty/?search%5Bfilter_float_price%3Ato%5D=1000',
+        ],
+        'desktop' => [
+            'chatID' => '-1001405907012',
+            'listLink' => 'https://www.olx.ua/elektronika/kompyutery-i-komplektuyuschie/nastolnye-kompyutery/?search%5Bfilter_float_price%3Ato%5D=1000',
+        ],
+        'monitor' => [
+            'chatID' => '-1001364285268',
+            'listLink' => 'https://www.olx.ua/elektronika/kompyutery-i-komplektuyuschie/monitory/?search%5Bfilter_float_price%3Ato%5D=1000',
+        ],
+        'tv' => [
+            'chatID' => '-1001206242449',
+            'listLink' => 'https://www.olx.ua/elektronika/tv-videotehnika/televizory/?search%5Bfilter_float_price%3Ato%5D=1000',
         ]
     ];
 
@@ -160,7 +172,7 @@ class OlxController extends Controller
             $data['price'] = '<b>' . preg_replace('/[^0-9]/', '', $out[0]) . ' грн</b>';
             $data['place'] = trim(preg_replace('/\s+/', ' ', strip_tags($match2[0])));
             $data['image'] = $match[1];
-            $data['link'] = $match1[1];
+            $data['link'] = $match1[1][1];
 
             $isNew = $this->saveRecord($data['image']);
 
