@@ -11,11 +11,25 @@ class OlxController extends Controller
 
     protected $_initialParams;
 
+    public function actionGetUpdates($hash)
+    {
+        $client = new Client();
+        $r = $client->createRequest()
+            ->setMethod('post')
+            ->setUrl('https://api.telegram.org/bot' . $hash . '/getUpdates')
+            ->setHeaders([
+                'Content-type' => 'application/json'
+            ])
+            ->send()->content;
+
+        var_dump($r); exit;
+    }
+
     public function actionNotebooks()
     {
         $this->_initialParams = [
             'hash' => '1089678800:AAF_JRk7mtCudhwzN7RCmAiq9PfO-kBImSg',
-            'chatID' => '579806028',
+            'chatID' => '-1001307607119',
             'listLink' => 'https://www.olx.ua/elektronika/noutbuki-i-aksesuary/noutbuki/?search%5Bfilter_float_price%3Ato%5D=1000',
         ];
 
