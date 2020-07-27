@@ -16,27 +16,53 @@ class OlxController extends Controller
             'chatID' => '-1001307607119',
             'listLink' => 'https://www.olx.ua/elektronika/noutbuki-i-aksesuary/noutbuki/?search%5Bfilter_float_price%3Ato%5D=1000',
         ],
-        'phones' => [
-            'chatID' => '-1001359657814',
-            'listLink' => 'https://www.olx.ua/elektronika/telefony-i-aksesuary/mobilnye-telefony-smartfony/samsung/?search%5Bfilter_float_price%3Ato%5D=1000',
-        ],
-        'video-cards' => [
-            'chatID' => '-1001483356841',
-            'listLink' => 'https://www.olx.ua/elektronika/kompyutery-i-komplektuyuschie/komplektuyuschie-i-aksesuary/videokarty/?search%5Bfilter_float_price%3Ato%5D=1000',
-        ],
+//        'phones' => [
+//            'chatID' => '-1001359657814',
+//            'listLink' => 'https://www.olx.ua/elektronika/telefony-i-aksesuary/mobilnye-telefony-smartfony/samsung/?search%5Bfilter_float_price%3Ato%5D=1000',
+//        ],
+//        'video-cards' => [
+//            'chatID' => '-1001483356841',
+//            'listLink' => 'https://www.olx.ua/elektronika/kompyutery-i-komplektuyuschie/komplektuyuschie-i-aksesuary/videokarty/?search%5Bfilter_float_price%3Ato%5D=1000',
+//        ],
         'desktop' => [
             'chatID' => '-1001405907012',
-            'listLink' => 'https://www.olx.ua/elektronika/kompyutery-i-komplektuyuschie/nastolnye-kompyutery/?search%5Bfilter_float_price%3Ato%5D=1000',
+            'listLink' => 'https://www.olx.ua/elektronika/kompyutery-i-komplektuyuschie/komplektuyuschie-i-aksesuary/materinskie-platy/?search%5Bfilter_float_price%3Ato%5D=1000',
         ],
-        'monitor' => [
-            'chatID' => '-1001364285268',
-            'listLink' => 'https://www.olx.ua/elektronika/kompyutery-i-komplektuyuschie/monitory/?search%5Bfilter_float_price%3Ato%5D=1000',
-        ],
-        'tv' => [
-            'chatID' => '-1001206242449',
-            'listLink' => 'https://www.olx.ua/elektronika/tv-videotehnika/televizory/?search%5Bfilter_float_price%3Ato%5D=1000',
-        ]
+//        'monitor' => [
+//            'chatID' => '-1001364285268',
+//            'listLink' => 'https://www.olx.ua/elektronika/kompyutery-i-komplektuyuschie/monitory/?search%5Bfilter_float_price%3Ato%5D=1000',
+//        ],
+//        'tv' => [
+//            'chatID' => '-1001206242449',
+//            'listLink' => 'https://www.olx.ua/elektronika/tv-videotehnika/televizory/?search%5Bfilter_float_price%3Ato%5D=1000',
+//        ]
     ];
+
+    /**
+     * Список доступных проксей.
+     *
+     * @var array
+     */
+    private $_proxyList = array(
+        '195.138.77.24:80',
+        '94.158.148.166:8080',
+        '94.154.222.127:8080',
+        '46.185.49.192:8080',
+        '92.112.242.82:8080',
+        '46.164.138.225:8080',
+        '193.25.120.235:8080',
+        '46.164.138.7:8080',
+
+        '200.110.243.150:80',
+        '218.203.54.8:80',
+        '117.59.224.62:80',
+        '112.220.65.195:80',
+        '118.69.168.14:80',
+        '117.59.224.58:80',
+        '117.59.224.61:80',
+        '183.238.55.236:80',
+        '180.244.208.185:80',
+    );
 
     public function actionGetUpdates($hash)
     {
@@ -72,6 +98,7 @@ class OlxController extends Controller
              )'
             );
             $response = $this->loadRecordsList($this->_initialParams['listLink']);
+
             $this->processQueue($response);
         }
 
@@ -116,10 +143,12 @@ class OlxController extends Controller
     protected function loadRecordsList($url)
     {
         $client = new Client();
+        $proxy = $this->_proxyList[array_rand($this->_proxyList)];
 
         return $client->createRequest()
             ->setMethod('get')
             ->setUrl($url)
+            ->setOptions([CURLOPT_PROXY, $proxy])
             ->send()->content;
     }
 
