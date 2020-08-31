@@ -12,6 +12,8 @@ $header = 'https://cdn.cloudflare.steamstatic.com/steam/apps/::id::/header.jpg?t
                 <img src="<?php echo str_replace('::id::', $game->id, $header)?>" />
                 <div class="card-body">
                     <p class="card-text"><b><?php echo $game->title ?></b></p>
+                    <p>Последняя новость: <b><?= $game->lastNewTitle ?></b></p>
+                    <p>Дата: <?= date('d.m.Y H:i', $game->lastNewTime) ?></p>
                     <div class="d-flex justify-content-between align-items-center">
                         <div class="btn-group">
                             <a href="/site/game/<?= $game->id?>" type="button" class="btn btn-sm btn-outline-secondary">Перейти</a>

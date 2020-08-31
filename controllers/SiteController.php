@@ -2,6 +2,7 @@
 
 namespace app\controllers;
 
+use Codeception\PHPUnit\Constraint\Page;
 use Yii;
 use yii\filters\AccessControl;
 use yii\httpclient\Client;
@@ -22,10 +23,10 @@ class SiteController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => ['logout'],
+                'only' => ['logout', 'add'],
                 'rules' => [
                     [
-                        'actions' => ['logout'],
+                        'actions' => ['logout', 'add'],
                         'allow' => true,
                         'roles' => ['@'],
                     ],
@@ -34,7 +35,7 @@ class SiteController extends Controller
             'verbs' => [
                 'class' => VerbFilter::className(),
                 'actions' => [
-                    'logout' => ['post'],
+//                    'logout' => ['post'],
                 ],
             ],
         ];
@@ -63,8 +64,9 @@ class SiteController extends Controller
      */
     public function actionIndex()
     {
+//        var_dump(Yii::$app->user->isGuest); exit;
         $this->_pdo = new \PDO("sqlite:games.db");
-        $STH = $this->_pdo->prepare("SELECT * FROM games");
+        $STH = $this->_pdo->prepare("SELECT * FROM games ORDER BY lastNewTime DESC");
         $STH->execute();
         $STH->setFetchMode(\PDO::FETCH_OBJ);
         $games = $STH->fetchAll();
@@ -75,13 +77,7 @@ class SiteController extends Controller
     public function actionGame($id)
     {
 //        http://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid=440&count=3&maxlength=300&format=json
-        $client = new Client();
-        $response = $client->createRequest()
-            ->setMethod('get')
-            ->setUrl('http://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid=' . $id . '&count=3&maxlength=5000&format=json')
-            ->send()->content;
-
-        $response = json_decode($response, true);
+        $response = $this->loadGameNews($id);
 
         $this->_pdo = new \PDO("sqlite:games.db");
         $STH = $this->_pdo->prepare("SELECT * FROM games WHERE id = :id");
@@ -96,6 +92,19 @@ class SiteController extends Controller
         ]);
     }
 
+    protected function loadGameNews($gameId)
+    {
+        $client = new Client();
+        $response = $client->createRequest()
+            ->setMethod('get')
+            ->setUrl('http://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid=' . $gameId . '&count=3&maxlength=5000&format=json')
+            ->send()->content;
+
+        $response = json_decode($response, true);
+
+        return $response;
+    }
+
     /**
      * Displays about page.
      *
@@ -104,6 +113,47 @@ class SiteController extends Controller
     public function actionAdd()
     {
         return $this->render('add');
+    }
+
+    public function actionFavorites()
+    {
+        $this->_pdo = new \PDO("sqlite:games.db");
+        $STH = $this->_pdo->prepare("SELECT * FROM favorites ORDER BY `time` DESC");
+        $STH->execute();
+        $STH->setFetchMode(\PDO::FETCH_OBJ);
+        $favorites = $STH->fetchAll();
+        return $this->render('favorites', ['favorites' => $favorites]);
+    }
+
+    public function actionAddFavorite()
+    {
+        \Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $data = json_decode(urldecode(\Yii::$app->request->post('data')));
+
+        $this->_pdo = new \PDO("sqlite:games.db");
+        $this->_pdo->query(
+            'CREATE TABLE if not exists favorites
+             (
+             `id` INTEGER PRIMARY KEY,
+             `gid` TEXT,
+             `userID` TEXT,
+             `time` TEXT,
+             `data` TEXT
+             )'
+        );
+
+        $STH = $this->_pdo->prepare(
+            "INSERT INTO favorites (`gid`, `userID`, `time`, `data`) VALUES (:gid, :userID, :time, :data)"
+        );
+        $STH->execute([
+            'gid' => $data->gid,
+            'userID' => \Yii::$app->user->identity->id,
+            'time' => $data->date,
+            'data' => \Yii::$app->request->post('data')
+        ]);
+
+        return [];
     }
 
     public function actionGetList()
@@ -174,14 +224,32 @@ class SiteController extends Controller
             'CREATE TABLE if not exists games
              (
              id INTEGER PRIMARY KEY,
+             lastNewTitle TEXT,
+             lastNewTime TEXT,
              title TEXT
              )'
         );
 
+        $news = $this->loadGameNews($data['id']);
+
+        if (!empty($news['appnews']['newsitems'][0])) {
+            $lastNew = $news['appnews']['newsitems'][0];
+        } else {
+            $lastNew = [
+                'title' => null,
+                'date' => null,
+            ];
+        }
+
         $STH = $this->_pdo->prepare(
-            "INSERT INTO games (id, title) VALUES (:id, :title)"
+            "INSERT INTO games (id, title, lastNewTitle, lastNewTime) VALUES (:id, :title, :lastNewTitle, :lastNewTime)"
         );
-        $STH->execute(['id' => $data['id'], 'title' => $data['title']]);
+        $STH->execute([
+            'id' => $data['id'],
+            'title' => $data['title'],
+            'lastNewTitle' => $lastNew['title'],
+            'lastNewTime' => $lastNew['date']
+        ]);
 
         return $data['id'];
     }
