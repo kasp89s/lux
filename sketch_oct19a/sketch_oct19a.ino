@@ -7,12 +7,16 @@ SoftwareSerial SIM800(8, 9);
 int batteryVoltagePin = 0,
     chargeBatteryPin = 1,
     lastBatteryVoltage = 0,
+    simBootPin = 7,
     // Напряжение питания ардуино.
     ACIN_Voltage = 4680;
 
 void setup() {
   Serial.begin(9600);
   pinMode(batteryVoltagePin, INPUT);
+  pinMode(simBootPin, OUTPUT);
+  digitalWrite(simBootPin, LOW);
+  delay(2000);
   Serial.println("Start");
   SIM800.begin(9600);
   SIM800.println("AT");
