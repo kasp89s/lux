@@ -32,7 +32,7 @@ void updateCounters()
    updateBatteryCounter++;
    checkGPSCounter++;
    
-    // раз в 10 секунд обновляем данные про батарею
+    // раз в 60 секунд обновляем данные про батарею
     if (updateBatteryCounter >= 2600000) {
        updateBatteryCounter = 0;
        updateBatteryPower();
@@ -45,17 +45,11 @@ void updateCounters()
        checkGPSCounter = 0;
        gpsListener();
        String response = "";
-//       String urlP1 = "http://",
-//             urlP2 = "1854993.",
-//             urlP3 = "yz403522.",
-//             urlP4 = "web.",
-//             urlP5 = "hosting-test.",
-//             urlP6 = "net/",
-//             urlP7 = "sim.php";
        response = sendATCommand("AT+SAPBR=1,1", true, true);
        if (response == "OK") {
            sendATCommand("AT+HTTPINIT", true, false);
            sendATCommand("AT+HTTPPARA=CID,1", true, false);
+            //https!!
            //sendATCommand("AT+HTTPSSL=1", true, false);
        }
 
@@ -66,20 +60,17 @@ String url = "AT+HTTPPARA=URL,http://";
     url += "&i=" + IMEI;
     url += "&b=" + String(batteryPower, DEC);
     url += "&n=" + String(network, DEC);
-//    url += String(gps.location.lat(), DEC);
-//    url += ",";
-//    url += String(gps.location.lng(), DEC);
 
-       sendATCommand(url, true, false);
-       sendATCommand("AT+HTTPACTION=0", true, false);
+    sendATCommand(url, true, false);
+    sendATCommand("AT+HTTPACTION=0", true, false);
     }
 }
 
 // Инициализация интернета
 void initInternet()
 {
-  //if (OPERATOR == "UMC")
   sendATCommand("AT+SAPBR=3,1,Contype,GPRS", true, false);
+  //if (OPERATOR == "UMC")
   sendATCommand("AT+CSTT=\"internet\",\"\",\"\"", true, false);
 }
 
