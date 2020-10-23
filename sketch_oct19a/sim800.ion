@@ -1,7 +1,9 @@
-#include <AltSoftSerial.h>
 #include <SoftwareSerial.h>
-SoftwareSerial SIM800(5, 6);
-AltSoftSerial GPS;
+SoftwareSerial SIM800(8, 9);
+SoftwareSerial GPS(3, 4);
+
+const char *umcConfig[]  = {"wap", "","", "192.168.010.010"};
+const char *kievstarConfig[]  = {"www.kyivstar.net", "igprs", "internet", ""};
 
 bool modemReady = 0, // Готов ли модем
      enableEcho = 1; 
@@ -17,18 +19,94 @@ int batteryPower = 0,
 
 // Эта хуйня делает 60000 цыклов в секунду
 long ticCounter = 0,
-     updateBatteryCounter = 0;
+     updateBatteryCounter = 0,
+     checkGPSCounter = 0;
 
 void updateCounters()
 {
    ticCounter++;
    updateBatteryCounter++;
-
+   checkGPSCounter++;
+   
     // раз в 10 секунд обновляем данные про батарею
-    if (updateBatteryCounter >= 600000) {
+    if (updateBatteryCounter >= 2600000) {
        updateBatteryCounter = 0;
        updateBatteryPower();
+       updateNetwork();
+       //sendATCommand("AT+CUSD=1,\"*101#\"", true);
     }
+
+    // раз в 30 секунд проверяем данные GPS
+    if (checkGPSCounter >= 1800000) {
+       Serial.println("GPS Working...");
+       checkGPSCounter = 0;
+       gpsListener();
+    }
+}
+
+// Инициализация интернета
+void initInternet()
+{
+  char *configData[] = {"wap", "","", "192.168.010.010"};
+  String apn = configData[0],
+         username = configData[1],
+         password = configData[2],
+         ip = configData[3];
+  //if (OPERATOR == "UMC")
+  //Serial.println(configData[0]);
+  // Full mode
+  //sendATCommand("AT+CFUN=1", true);
+
+  //sendATCommand("AT+CSTT=\"" + apn + "\",\"\",\"\"\r\n", true);
+
+  //sendATCommand("AT+CIICR", true);
+  sendATCommand("AT+SAPBR=3,1,Contype,GPRS", true);
+  sendATCommand("AT+SAPBR=3,1,\"APN\",\"" + apn + "\"", true);
+  sendATCommand("AT+SAPBR=3,1,\"USER\",\"" + username + "\"", true);
+  sendATCommand("AT+SAPBR=3,1,\"PWD\",\"" + password + "\"", true);
+  delay(10000);
+  sendATCommand("AT+SAPBR=1,1", true);
+  delay(10000);
+  sendATCommand("AT+SAPBR=2,1", true);
+  delay(10000);
+  sendATCommand("AT+HTTPINIT", true);
+
+  /*
+  // Set credentials (TODO username and password are not configurable from variables). This may work without CSTT and CIICR but sometimes it caused error without them even though APN is given by SAPBR 
+  sim_ss.write("AT+CSTT=\"");
+  sim_ss.print(apn);
+  sim_ss.write("\",\"\",\"\"\r\n");
+  waitUntilResponse("OK");
+  blinkLed(SimConnectionPin);
+  
+  // Connect and get IP
+  sim_ss.println("AT+CIICR");
+  waitUntilResponse("OK");
+  blinkLed(SimConnectionPin);
+  
+  // Some more credentials
+  sim_ss.write("AT+SAPBR=3,1,\"APN\",\"");
+  sim_ss.print(apn);
+  sim_ss.write("\"\r\n");
+  waitUntilResponse("OK");
+  blinkLed(SimConnectionPin);
+  
+  sim_ss.println("AT+SAPBR=3,1,\"USER\",\"\"");
+  waitUntilResponse("OK");
+  blinkLed(SimConnectionPin);
+  
+  sim_ss.println("AT+SAPBR=3,1,\"PWD\",\"\"");
+  waitUntilResponse("OK");
+  blinkLed(SimConnectionPin);
+  
+  sim_ss.println("AT+SAPBR=1,1");
+  waitUntilResponse("OK");
+  blinkLed(SimConnectionPin);
+  
+  sim_ss.println("AT+HTTPINIT");
+  waitUntilResponse("OK");
+  digitalWrite(SimConnectionPin, HIGH);
+  */
 }
 
 void setup() {
@@ -37,6 +115,8 @@ void setup() {
   delay(5000); // Ждем запуска симки
   Serial.begin(9600);
   SIM800.begin(9600);
+  GPS.begin(9600);
+  SIM800.listen();
   sendATCommand("AT", true);
   sendATCommand("ATE0", true);
   IMEI = sendATCommand("AT+GSN", true);
@@ -44,6 +124,10 @@ void setup() {
 }
 
 void loop() {
+//  if (GPS.available()){
+//     Serial.println(GPS.readString());
+//  }
+
   if (SIM800.available()){
      simRxListener(SIM800.readString());
   }
@@ -61,12 +145,23 @@ void loop() {
 //    Serial.println(network);
 //    delay(1000);
   }
+}
 
-  //SIM800.println("ATD+380500222622;");
-  //delay(10000);
-  //SIM800.println("ATH");
-  //delay(600000);
-  // Определяем заряд батареи.
+// Работа с GPS
+void gpsListener()
+{
+   GPS.listen();
+
+  // Секунду слушаем GPS
+  for (unsigned long start = millis(); millis() - start < 1000;)
+  {
+    while (GPS.available())
+    {
+      Serial.write(GPS.read());
+    }
+  }
+
+  SIM800.listen();
 }
 
 // Слушает чо говорит симка и чето потом делает...
@@ -74,9 +169,14 @@ void simRxListener(String response)
 {
   response.trim();
 
-  if (response == "Call Ready") {
+  Serial.println(ticCounter);
+  Serial.print("Modem response => [");
+  Serial.print(response);
+  Serial.println("]");
+
+  if (response == "SMS Ready") {
         updateOperator();
-        Serial.println(OPERATOR);
+        initInternet();
         modemReady = 1;
   }
   if (response == "RING")
@@ -84,10 +184,9 @@ void simRxListener(String response)
     sendATCommand("ATH", true);
   }
 
-  Serial.println(ticCounter);
-  Serial.print("Modem response => [");
-  Serial.print(response);
-  Serial.println("]");
+  if (response.lastIndexOf("CUSD")) {
+     // Обрабатуем ответ с балансом...
+  }
 }
 
 String sendATCommand(String cmd, bool waiting) {
@@ -114,7 +213,7 @@ String sendATCommand(String cmd, bool waiting) {
 
 String waitResponse() {                         // Функция ожидания ответа и возврата полученного результата
   String _resp = "";                            // Переменная для хранения результата
-  long _timeout = millis() + 10000;             // Переменная для отслеживания таймаута (10 секунд)
+  long _timeout = millis() + 60000;             // Переменная для отслеживания таймаута (10 секунд)
   while (!SIM800.available() && millis() < _timeout)  {}; // Ждем ответа 10 секунд, если пришел ответ или наступил таймаут, то...
   if (SIM800.available()) {                     // Если есть, что считывать...
     _resp = SIM800.readString();                // ... считываем и запоминаем
