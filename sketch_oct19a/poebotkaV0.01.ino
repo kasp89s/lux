@@ -251,3 +251,13 @@ String getValue(String data, char separator, int index)
     }
     return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
+
+void resetModem() {
+  // reset modem
+  pinMode(2, OUTPUT);
+  digitalWrite(2, LOW);
+  delay(115);
+  //digitalWrite(reset_sim800_pin, HIGH);
+  pinMode(2, INPUT);
+  digitalWrite(2, LOW);
+}
