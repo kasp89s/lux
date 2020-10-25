@@ -64,3 +64,26 @@ def Opencell(MMC,MNC,LAC,ID,API_KEY=OpenCell_Api_Key):
     else:
         print('Error: {}'.format(response.status_code))
         return None
+
+    
+    use LWP;
+
+my $ua = LWP::UserAgent->new;
+$ua->agent("TestApp/0.1 ");
+$ua->env_proxy();
+
+my $req = HTTP::Request->new(POST => 'https://www.google.com/loc/json');
+
+$req->content_type('application/jsonrequest');
+$req->content('{"cell_towers": [{"location_area_code": "8721", "mobile_network_code": "01", "cell_id": "7703", "mobile_country_code": "262"}], "version": "1.1.0", "request_address": "true"}');
+
+# Pass request to the user agent and get a response back
+my $res = $ua->request($req);
+
+# Check the outcome of the response
+if ($res->is_success) {
+    print $res->content;
+} else {
+    print $res->status_line, "\n";
+    return undef;
+}
