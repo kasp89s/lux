@@ -36,8 +36,7 @@ long  initalizedCounter = 0,
 void getSimCoordinates()
 {
     _response = sendATCommand("AT+CIMI", true, false);
-    SIM_GPS = _response.substring(0, 3).toInt();
-    SIM_GPS += _response.substring(3, 5);
+    SIM_GPS = _response.substring(0, 5);
     _response = sendATCommand("AT+CREG?", true, false);
     SIM_GPS += getValue(_response, ',', 2);
     SIM_GPS += getValue(_response, ',', 3);
@@ -50,12 +49,12 @@ void updateCounters()
    checkGPSCounter++;
 
     // раз в 5 18000000 минут проверяем данные GPS 
-    if (checkGPSCounter >= 600000) {
+    if (checkGPSCounter >= 3600000) {
        checkGPSCounter = 0;
        updateBatteryPower();
        updateNetwork();
        getSimCoordinates();
-       //gpsListener();
+       gpsListener();
        String response = "";
 
        response = sendATCommand("AT+SAPBR=1,1", true, true);
@@ -75,6 +74,7 @@ void updateCounters()
           url += "/sim.php?";
           if (gpsIsFind) {
             url += "g=" + String(flat, DEC) + "x" + String(flon, DEC);
+            gpsIsFind = false;
           }
           else{
             url += "s=" + SIM_GPS;
@@ -100,7 +100,7 @@ void initInternet()
 void setup() {
   delay(5000); // Ждем запуска симки
   pinMode(GPS_PIN, OUTPUT);
-
+  digitalWrite(GPS_PIN, HIGH); // включить GPS
   //analogWrite(A3, 200);
   Serial.begin(9600);
   SIM800.begin(9600);
@@ -133,7 +133,6 @@ void loop() {
 // Работа с GPS
 void gpsListener()
 {
-  digitalWrite(GPS_PIN, HIGH); // включить GPS
   GPS.listen();
   char character;
   bool newData = false;
@@ -144,14 +143,14 @@ void gpsListener()
                 startGPS = millis();
 
   // Пока данные не получим слушаем GPS!
-  while (!newData && whaitingFor < 180) {
+  while (!newData && whaitingFor < 10) {
     if (lastMillis < millis() + 1000) {
         lastMillis = millis();
         whaitingFor = (millis() - startGPS) / 1000;
 
-        Serial.print("Whait for:");
         Serial.println(whaitingFor);
     }
+    //_response = "";
     // Секунду слушаем GPS
     for (unsigned long start = millis(); millis() - start < 1000;)
     {
@@ -161,13 +160,13 @@ void gpsListener()
         
         if (gpsLib.encode(character)) // Did a new valid sentence come in?
            newData = true;
-        //Serial.write(character);
-        
         //_response.concat(character);
       }
     }
+    //Serial.println(_response);
     if (newData)
     {
+      gpsIsFind = true;
       gpsLib.f_get_position(&flat, &flon, &age);
   
       flat = flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6;
@@ -190,13 +189,9 @@ void gpsListener()
     Serial.print(sentences);
     Serial.print(" CSUM ERR=");
     Serial.println(failed);
-    if (chars == 0)
-      Serial.println("** No characters received from GPS: check wiring **");  
-    //Serial.println(_response);
-    //_response = "";
   }
 
-  digitalWrite(GPS_PIN, LOW); // выключить GPS
+  //digitalWrite(GPS_PIN, LOW); // выключить GPS
   SIM800.listen();
 }
 
@@ -205,13 +200,8 @@ void simRxListener(String response)
 {
   response.trim();
 
-  Serial.print("Modem response => [");
   Serial.print(response);
-  Serial.println("]");
 
-  if (response == "SMS Ready") {
-    setModemReady();
-  }
   if (response == "RING")
   {
     sendATCommand("ATH", true, false);
