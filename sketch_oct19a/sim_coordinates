@@ -1,5 +1,7 @@
 #!/bin/python
 """
+https://pikabu.ru/story/poisk_priblizitelnyikh_koordinat_s_pomoshchyu_gsm_modulya_bez_gps_4685803
+
 Written by Atissonoun - Credits to MFC & HAC
 ***You need to initialize the script in order to fix the import and the dependency.
 This is only a Beta version of the project***
