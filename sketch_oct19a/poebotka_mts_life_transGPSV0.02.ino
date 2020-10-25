@@ -4,7 +4,11 @@ SoftwareSerial SIM800(8, 9);
 SoftwareSerial GPS(3, 4);
 TinyGPS gpsLib;
 
+//Пины управления
+byte GPS_PIN = 2;
+
 bool initalized = 0,
+     gpsIsFind = 0,
      modemReady = 0, // Готов ли модем
      enableEcho = 1; 
 
@@ -18,34 +22,40 @@ int batteryPower = 0,
     network = 0;
 
 // Эта хуйня делает 60000 цыклов в секунду
-long ticCounter = 0,
-     initalizedCounter = 0,
-     updateBatteryCounter = 0,
-     checkGPSCounter = 0;
+long  initalizedCounter = 0,
+      checkGPSCounter = 18000000;
 
 // GPS хуйня
     float flat = 0.0, flon = 0.0;
     unsigned long age = 0;
     int sat = 0, hdoop = 0;
-    
+// SIM GPS хуйня
+    String SIM_GPS;
+
+// Получает данные для сим координат.
+void getSimCoordinates()
+{
+    _response = sendATCommand("AT+CIMI", true, false);
+    SIM_GPS = _response.substring(0, 3).toInt();
+    SIM_GPS += _response.substring(3, 5);
+    _response = sendATCommand("AT+CREG?", true, false);
+    SIM_GPS += getValue(_response, ',', 2);
+    SIM_GPS += getValue(_response, ',', 3);
+    SIM_GPS.replace("\"", "");
+    Serial.println(SIM_GPS);
+}
+
 void updateCounters()
 {
-   ticCounter++;
-   updateBatteryCounter++;
    checkGPSCounter++;
-   
-    // раз в 10 секунд обновляем данные про батарею
-    if (updateBatteryCounter >= 2600000) {
-       updateBatteryCounter = 0;
+
+    // раз в 5 18000000 минут проверяем данные GPS 
+    if (checkGPSCounter >= 600000) {
+       checkGPSCounter = 0;
        updateBatteryPower();
        updateNetwork();
-       //sendATCommand("AT+CUSD=1,\"*101#\"", true);
-    }
-
-    // раз в 30 секунд проверяем данные GPS
-    if (checkGPSCounter >= 1800000) {
-       checkGPSCounter = 0;
-       gpsListener();
+       getSimCoordinates();
+       //gpsListener();
        String response = "";
 
        response = sendATCommand("AT+SAPBR=1,1", true, true);
@@ -55,13 +65,24 @@ void updateCounters()
            //sendATCommand("AT+HTTPSSL=1", true, false);
        }
 
-String url = "AT+HTTPPARA=URL,http://";
-    url += "1854993.yz403522.web.hosting-test.net";
-    url += "/sim.php?";
-    url += "g=" + String(flat, DEC) + "x" + String(flon, DEC);
-    url += "&i=" + IMEI;
-    url += "&b=" + String(batteryPower, DEC);
-    url += "&n=" + String(network, DEC);
+/**
+ *     int MCC;
+    String MNC, LAC, CELLID;
+ * 
+*/
+      String url = "AT+HTTPPARA=URL,http://";
+          url += "1854993.yz403522.web.hosting-test.net";
+          url += "/sim.php?";
+          if (gpsIsFind) {
+            url += "g=" + String(flat, DEC) + "x" + String(flon, DEC);
+          }
+          else{
+            url += "s=" + SIM_GPS;
+          }
+          
+          url += "&i=" + IMEI;
+          url += "&b=" + String(batteryPower, DEC);
+          url += "&n=" + String(network, DEC);
 
        sendATCommand(url, true, false);
        sendATCommand("AT+HTTPACTION=0", true, false);
@@ -78,15 +99,16 @@ void initInternet()
 
 void setup() {
   delay(5000); // Ждем запуска симки
-  pinMode(2, OUTPUT);
-  digitalWrite(2, LOW);
-  //analogWrite(A3, 100);
+  pinMode(GPS_PIN, OUTPUT);
+
+  //analogWrite(A3, 200);
   Serial.begin(9600);
   SIM800.begin(9600);
   GPS.begin(9600);
   SIM800.listen();
   sendATCommand("AT", true, false);
   sendATCommand("ATE0", true, false);
+  sendATCommand("AT+CREG=2", true, false);
   IMEI = sendATCommand("AT+GSN", true, false);
   updateBatteryPower();
 }
@@ -101,66 +123,80 @@ void loop() {
     initalizedCounter++;
     // Ждем 60000 * секунд и говорим что можем готов.
     if (initalizedCounter >= 600000) {
-      setModemReady();
+      initalizedCounter = 0;
+      if (checkModemReady())
+        setModemReady();
     }
-//    updateNetwork();
-//    Serial.println(network);
-//    delay(1000);
   }
 }
 
 // Работа с GPS
 void gpsListener()
 {
-  digitalWrite(2, HIGH);
+  digitalWrite(GPS_PIN, HIGH); // включить GPS
   GPS.listen();
   char character;
   bool newData = false;
   unsigned long chars;
   unsigned short sentences, failed;
-  
-  // Секунду слушаем GPS
-  for (unsigned long start = millis(); millis() - start < 1000;)
-  {
-    while (GPS.available())
-    {
-      character = GPS.read();
-      
-      if (gpsLib.encode(character)) // Did a new valid sentence come in?
-         newData = true;
-      //Serial.write(character);
-      
-      //_response.concat(character);
-    }
-  }
-  if (newData)
-  {
-    gpsLib.f_get_position(&flat, &flon, &age);
+  unsigned long whaitingFor = 0,
+                lastMillis = 0,
+                startGPS = millis();
 
-    flat = flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6;
-    flon = flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6;
-    sat = gpsLib.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gpsLib.satellites();
-    hdoop = gpsLib.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gpsLib.hdop();
-    Serial.print("LAT=");
-    Serial.print(flat);
-    Serial.print(" LON=");
-    Serial.print(flon);
-    Serial.print(" SAT=");
-    Serial.print(sat);
-    Serial.print(" PREC=");
-    Serial.print(hdoop);
+  // Пока данные не получим слушаем GPS!
+  while (!newData && whaitingFor < 180) {
+    if (lastMillis < millis() + 1000) {
+        lastMillis = millis();
+        whaitingFor = (millis() - startGPS) / 1000;
+
+        Serial.print("Whait for:");
+        Serial.println(whaitingFor);
+    }
+    // Секунду слушаем GPS
+    for (unsigned long start = millis(); millis() - start < 1000;)
+    {
+      while (GPS.available())
+      {
+        character = GPS.read();
+        
+        if (gpsLib.encode(character)) // Did a new valid sentence come in?
+           newData = true;
+        //Serial.write(character);
+        
+        //_response.concat(character);
+      }
+    }
+    if (newData)
+    {
+      gpsLib.f_get_position(&flat, &flon, &age);
+  
+      flat = flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6;
+      flon = flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6;
+      sat = gpsLib.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gpsLib.satellites();
+      hdoop = gpsLib.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gpsLib.hdop();
+      Serial.print("LAT=");
+      Serial.print(flat);
+      Serial.print(" LON=");
+      Serial.print(flon);
+      Serial.print(" SAT=");
+      Serial.print(sat);
+      Serial.print(" PREC=");
+      Serial.print(hdoop);
+    }
+    gpsLib.stats(&chars, &sentences, &failed);
+    Serial.print(" CHARS=");
+    Serial.print(chars);
+    Serial.print(" SENTENCES=");
+    Serial.print(sentences);
+    Serial.print(" CSUM ERR=");
+    Serial.println(failed);
+    if (chars == 0)
+      Serial.println("** No characters received from GPS: check wiring **");  
+    //Serial.println(_response);
+    //_response = "";
   }
-  gpsLib.stats(&chars, &sentences, &failed);
-  Serial.print(" CHARS=");
-  Serial.print(chars);
-  Serial.print(" SENTENCES=");
-  Serial.print(sentences);
-  Serial.print(" CSUM ERR=");
-  Serial.println(failed);
-  if (chars == 0)
-    Serial.println("** No characters received from GPS: check wiring **");  
-  //Serial.println(_response);
-  //_response = "";
+
+  digitalWrite(GPS_PIN, LOW); // выключить GPS
   SIM800.listen();
 }
 
@@ -169,7 +205,6 @@ void simRxListener(String response)
 {
   response.trim();
 
-  Serial.println(ticCounter);
   Serial.print("Modem response => [");
   Serial.print(response);
   Serial.println("]");
@@ -185,6 +220,14 @@ void simRxListener(String response)
   if (response.lastIndexOf("CUSD")) {
      // Обрабатуем ответ с балансом...
   }
+}
+
+//Проверка готовности модема
+bool checkModemReady()
+{
+  network = getValue(sendATCommand("AT+CSQ", true, false), ': ', 1).toInt();
+
+  return network > 0 ? true : false;
 }
 
 // Установка готовности модема.
