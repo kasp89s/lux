@@ -17,9 +17,10 @@ const String HTTP_URL = "AT+HTTPPARA=URL,http://1854993.yz403522.web.hosting-tes
              AT_HTTPACTION = "AT+HTTPACTION=0",
              AT_SET_GPRS = "AT+SAPBR=3,1,Contype,GPRS",
              AT_CONFIG_INTERNET = "AT+CSTT=\"internet\",\"\",\"\"",
-       AT_ATE = "ATE0",
-       AT_CREG_SET = "AT+CREG=2",
-       AT_GSN = "AT+GSN";
+             AT_ATE = "ATE0",
+             AT_CREG_SET = "AT+CREG=2",
+             AT_GSMBUSY = "AT+GSMBUSY=1",
+             AT_GSN = "AT+GSN";
 bool initalized = 0,
      gpsIsFind = 0,
      modemReady = 0, // Готов ли модем
@@ -119,14 +120,12 @@ void setup() {
   sendATCommand(AT, true, false);
   sendATCommand(AT_ATE, true, false);
   sendATCommand(AT_CREG_SET, true, false);
+  sendATCommand(AT_GSMBUSY, true, false);
   IMEI = sendATCommand(AT_GSN, true, false);
   updateBatteryPower();
 }
 
 void loop() {
-  if (SIM800.available()){
-     simRxListener(SIM800.readString());
-  }
   if (modemReady) {
     updateCounters();
   } else {
@@ -220,24 +219,6 @@ void gpsListener()
 
   //digitalWrite(GPS_PIN, LOW); // выключить GPS
   SIM800.listen();
-}
-
-// Слушает чо говорит симка и чето потом делает...
-void simRxListener(String response)
-{
-  const String RING ="RING";
-  response.trim();
-
-  Serial.print(response);
-
-  if (response == RING)
-  {
-    sendATCommand("ATH", true, false);
-  }
-
-  if (response.lastIndexOf("CUSD")) {
-     // Обрабатуем ответ с балансом...
-  }
 }
 
 //Проверка готовности модема
