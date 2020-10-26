@@ -109,7 +109,7 @@ void initInternet()
 }
 
 void setup() {
-  delay(5000); // Ждем запуска симки
+  delay(30000); // Ждем запуска симки
   //pinMode(GPS_PIN, OUTPUT);
   //digitalWrite(GPS_PIN, HIGH); // включить GPS
   //analogWrite(A3, 200);
