@@ -189,7 +189,7 @@ void gpsListener()
       flonFromResiver = flonFromResiver == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6;
       sat = gpsLib.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gpsLib.satellites();
       hdoop = gpsLib.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gpsLib.hdop();
-    /*
+
       Serial.print("LAT=");
       Serial.print(flat);
       Serial.print(" LON=");
@@ -198,7 +198,7 @@ void gpsListener()
       Serial.print(sat);
       Serial.print(" PREC=");
       Serial.print(hdoop);
-    */
+
       // Если координата новая
       if (flat != flatFromResiver || flon != flonFromResiver) {
         flat = flatFromResiver;
@@ -206,15 +206,15 @@ void gpsListener()
         gpsIsFind = true;
       }
     }
-    //gpsLib.stats(&chars, &sentences, &failed);
-  /*
+    gpsLib.stats(&chars, &sentences, &failed);
+
     Serial.print(" CHARS=");
     Serial.print(chars);
     Serial.print(" SENTENCES=");
     Serial.print(sentences);
     Serial.print(" CSUM ERR=");
     Serial.println(failed);
-  */
+
   }
 
   //digitalWrite(GPS_PIN, LOW); // выключить GPS
