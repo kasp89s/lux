@@ -62,12 +62,10 @@ void updateCounters()
 {
    checkGPSCounter++;
 
-  const int delayGPS = 3600000;
+   const int delayGPS = 3600000;
     // раз в 5 18000000 минут проверяем данные GPS 
     if (checkGPSCounter >= delayGPS) {
        checkGPSCounter = 0;
-       updateBatteryPower();
-       updateNetwork();
        gpsListener();
 
        syncWithServer();
@@ -75,7 +73,9 @@ void updateCounters()
 }
 
 void syncWithServer()
-{
+{       
+	   updateBatteryPower();
+       updateNetwork();
        getSimCoordinates();
        _response = sendATCommand(AT_SAPBR, true, true);
        if (_response == OK) {
@@ -191,9 +191,9 @@ void gpsListener()
       hdoop = gpsLib.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gpsLib.hdop();
 
       Serial.print("LAT=");
-      Serial.print(flat);
+      Serial.print(flatFromResiver);
       Serial.print(" LON=");
-      Serial.print(flon);
+      Serial.print(flonFromResiver);
       Serial.print(" SAT=");
       Serial.print(sat);
       Serial.print(" PREC=");
