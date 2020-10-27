@@ -1,10 +1,8 @@
 #include <SoftwareSerial.h>
-#include <TinyGPS.h>
 #include "TinyGPS++.h"
 
 SoftwareSerial SIM800(8, 9);
 SoftwareSerial GPS(3, 4);
-TinyGPS gpsLib;
 TinyGPSPlus gpsPP;
 //Пины управления
 //byte GPS_PIN = 2;
@@ -136,100 +134,67 @@ void gpsListener()
 {
   GPS.listen();
   char character;
-  bool newData = false;
-  unsigned long chars;
-  unsigned short sentences, failed;
+
   unsigned long whaitingFor = 0,
                 lastMillis = 0,
                 startGPS = millis();
 
-
- while (GPS.available() > 0) {
-   if (gpsPP.encode(GPS.read())) {
-    Serial.println(gpsPP.location.lat(), 6); // Latitude in degrees (double)
-Serial.println(gpsPP.location.lng(), 6); // Longitude in degrees (double)
-Serial.print(gpsPP.location.rawLat().negative ? "-" : "+");
-Serial.println(gpsPP.location.rawLat().deg); // Raw latitude in whole degrees
-Serial.println(gpsPP.location.rawLat().billionths);// ... and billionths (u16/u32)
-Serial.print(gpsPP.location.rawLng().negative ? "-" : "+");
-Serial.println(gpsPP.location.rawLng().deg); // Raw longitude in whole degrees
-Serial.println(gpsPP.location.rawLng().billionths);// ... and billionths (u16/u32)
-Serial.println(gpsPP.date.value()); // Raw date in DDMMYY format (u32)
-Serial.println(gpsPP.date.year()); // Year (2000+) (u16)
-Serial.println(gpsPP.date.month()); // Month (1-12) (u8)
-Serial.println(gpsPP.date.day()); // Day (1-31) (u8)
-Serial.println(gpsPP.time.value()); // Raw time in HHMMSSCC format (u32)
-Serial.println(gpsPP.time.hour()); // Hour (0-23) (u8)
-Serial.println(gpsPP.time.minute()); // Minute (0-59) (u8)
-Serial.println(gpsPP.time.second()); // Second (0-59) (u8)
-Serial.println(gpsPP.time.centisecond()); // 100ths of a second (0-99) (u8)
-Serial.println(gpsPP.speed.value()); // Raw speed in 100ths of a knot (i32)
-Serial.println(gpsPP.speed.knots()); // Speed in knots (double)
-Serial.println(gpsPP.speed.mph()); // Speed in miles per hour (double)
-Serial.println(gpsPP.speed.mps()); // Speed in meters per second (double)
-Serial.println(gpsPP.speed.kmph()); // Speed in kilometers per hour (double)
-Serial.println(gpsPP.course.value()); // Raw course in 100ths of a degree (i32)
-Serial.println(gpsPP.course.deg()); // Course in degrees (double)
-Serial.println(gpsPP.altitude.value()); // Raw altitude in centimeters (i32)
-Serial.println(gpsPP.altitude.meters()); // Altitude in meters (double)
-Serial.println(gpsPP.altitude.miles()); // Altitude in miles (double)
-Serial.println(gpsPP.altitude.kilometers()); // Altitude in kilometers (double)
-Serial.println(gpsPP.altitude.feet()); // Altitude in feet (double)
-Serial.println(gpsPP.satellites.value()); // Number of satellites in use (u32)
-Serial.println(gpsPP.hdop.value()); // Horizontal Dim. of Precision (100ths-i32)
-   }
- }
     //_response = "";
     // Секунду слушаем GPS
-    for (unsigned long start = millis(); millis() - start < 1000;)
-    {
-      while (GPS.available())
-      {
-        character = GPS.read();
-
-        if (gpsLib.encode(character)) // Did a new valid sentence come in?
-           newData = true;
-
-        Serial.write(character);
+    while (!gpsIsFind) {
+        if (lastMillis < millis() + 1000) {
+            lastMillis = millis();
+            whaitingFor = (millis() - startGPS) / 1000;
+        }
+        if (whaitingFor > 0 && whaitingFor % 60 == 0) {
+            SIM800.listen();
+            syncWithServer();
+            GPS.listen();
+        }
+        while (GPS.available() > 0)
+        {
+         character = GPS.read();
+         Serial.write(character);
+         gpsPP.encode(character);
+            if (gpsPP.altitude.isUpdated()) {
+              flat = gpsPP.location.lat();
+              flon = gpsPP.location.lng();
+              Serial.println(flat, 6); // Latitude in degrees (double)
+              Serial.println(flon, 6); // Longitude in degrees (double)
+              Serial.print(gpsPP.location.rawLat().negative ? "-" : "+");
+              Serial.println(gpsPP.location.rawLat().deg); // Raw latitude in whole degrees
+              Serial.println(gpsPP.location.rawLat().billionths);// ... and billionths (u16/u32)
+              Serial.print(gpsPP.location.rawLng().negative ? "-" : "+");
+              Serial.println(gpsPP.location.rawLng().deg); // Raw longitude in whole degrees
+              Serial.println(gpsPP.location.rawLng().billionths);// ... and billionths (u16/u32)
+              Serial.println(gpsPP.date.value()); // Raw date in DDMMYY format (u32)
+              Serial.println(gpsPP.date.year()); // Year (2000+) (u16)
+              Serial.println(gpsPP.date.month()); // Month (1-12) (u8)
+              Serial.println(gpsPP.date.day()); // Day (1-31) (u8)
+              Serial.println(gpsPP.time.value()); // Raw time in HHMMSSCC format (u32)
+              Serial.println(gpsPP.time.hour()); // Hour (0-23) (u8)
+              Serial.println(gpsPP.time.minute()); // Minute (0-59) (u8)
+              Serial.println(gpsPP.time.second()); // Second (0-59) (u8)
+              Serial.println(gpsPP.time.centisecond()); // 100ths of a second (0-99) (u8)
+              Serial.println(gpsPP.speed.value()); // Raw speed in 100ths of a knot (i32)
+              Serial.println(gpsPP.speed.knots()); // Speed in knots (double)
+              Serial.println(gpsPP.speed.mph()); // Speed in miles per hour (double)
+              Serial.println(gpsPP.speed.mps()); // Speed in meters per second (double)
+              Serial.println(gpsPP.speed.kmph()); // Speed in kilometers per hour (double)
+              Serial.println(gpsPP.course.value()); // Raw course in 100ths of a degree (i32)
+              Serial.println(gpsPP.course.deg()); // Course in degrees (double)
+              Serial.println(gpsPP.altitude.value()); // Raw altitude in centimeters (i32)
+              Serial.println(gpsPP.altitude.meters()); // Altitude in meters (double)
+              Serial.println(gpsPP.altitude.miles()); // Altitude in miles (double)
+              Serial.println(gpsPP.altitude.kilometers()); // Altitude in kilometers (double)
+              Serial.println(gpsPP.altitude.feet()); // Altitude in feet (double)
+              Serial.println(gpsPP.satellites.value()); // Number of satellites in use (u32)
+              Serial.println(gpsPP.hdop.value()); // Horizontal Dim. of Precision (100ths-i32)
+              gpsIsFind = true;
+           }
+        }
         //_response.concat(character);
-      }
     }
-    //Serial.println(_response);
-    if (newData)
-    {
-      float flatFromResiver = 0.0, flonFromResiver = 0.0;
-      gpsLib.f_get_position(&flatFromResiver, &flonFromResiver, &age);
-
-      flatFromResiver = flatFromResiver == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6;
-      flonFromResiver = flonFromResiver == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6;
-      sat = gpsLib.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gpsLib.satellites();
-      hdoop = gpsLib.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gpsLib.hdop();
-
-      Serial.print("LAT=");
-      Serial.print(flatFromResiver);
-      Serial.print(" LON=");
-      Serial.print(flonFromResiver);
-      Serial.print(" SAT=");
-      Serial.print(sat);
-      Serial.print(" PREC=");
-      Serial.print(hdoop);
-
-      // Если координата новая
-      if (flat != flatFromResiver || flon != flonFromResiver) {
-        flat = flatFromResiver;
-        flon = flonFromResiver;
-        gpsIsFind = true;
-      }
-    }
-    gpsLib.stats(&chars, &sentences, &failed);
-
-    Serial.print(" CHARS=");
-    Serial.print(chars);
-    Serial.print(" SENTENCES=");
-    Serial.print(sentences);
-    Serial.print(" CSUM ERR=");
-    Serial.println(failed);
-
   //digitalWrite(GPS_PIN, LOW); // выключить GPS
   SIM800.listen();
 }
