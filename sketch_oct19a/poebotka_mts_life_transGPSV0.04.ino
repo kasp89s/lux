@@ -60,21 +60,14 @@ void getSimCoordinates()
 
 void updateCounters()
 {
-   checkGPSCounter++;
-
-   const int delayGPS = 3600000;
-    // раз в 5 18000000 минут проверяем данные GPS 
-    if (checkGPSCounter >= delayGPS) {
-       checkGPSCounter = 0;
-       gpsListener();
-
-       syncWithServer();
-    }
+   delay(30000);
+   gpsListener();
+   syncWithServer();
 }
 
 void syncWithServer()
 {       
-	   updateBatteryPower();
+     updateBatteryPower();
        updateNetwork();
        getSimCoordinates();
        _response = sendATCommand(AT_SAPBR, true, true);
@@ -129,14 +122,10 @@ void loop() {
   if (modemReady) {
     updateCounters();
   } else {
-    initalizedCounter++;
-  const int initalizedInterval = 1600000;
-    // Ждем 60000 * секунд и говорим что можем готов.
-    if (initalizedCounter >= initalizedInterval) {
-      initalizedCounter = 0;
-      if (checkModemReady())
+    delay(10000);
+    
+    if (checkModemReady())
         setModemReady();
-    }
   }
 }
 
@@ -159,9 +148,11 @@ void gpsListener()
       while (GPS.available())
       {
         character = GPS.read();
-        
+
         if (gpsLib.encode(character)) // Did a new valid sentence come in?
            newData = true;
+
+        Serial.write(character);
         //_response.concat(character);
       }
     }
