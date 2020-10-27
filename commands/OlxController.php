@@ -26,12 +26,12 @@ class OlxController extends Controller
 //        ],
         'desktop' => [
             'chatID' => '-1001405907012',
-            'listLink' => 'https://www.olx.ua/elektronika/kompyutery-i-komplektuyuschie/komplektuyuschie-i-aksesuary/materinskie-platy/?search%5Bfilter_float_price%3Ato%5D=1000',
+            'listLink' => 'https://www.olx.ua/elektronika/igry-i-igrovye-pristavki/pristavki/q-playstation-4/?search%5Bfilter_float_price%3Ato%5D=2000',
         ],
-//        'monitor' => [
-//            'chatID' => '-1001364285268',
-//            'listLink' => 'https://www.olx.ua/elektronika/kompyutery-i-komplektuyuschie/monitory/?search%5Bfilter_float_price%3Ato%5D=1000',
-//        ],
+        'monitor' => [
+            'chatID' => '-1001364285268',
+            'listLink' => 'https://www.olx.ua/list/q-Philips-32PFL9632D/',
+        ],
 //        'tv' => [
 //            'chatID' => '-1001206242449',
 //            'listLink' => 'https://www.olx.ua/elektronika/tv-videotehnika/televizory/?search%5Bfilter_float_price%3Ato%5D=1000',

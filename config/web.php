@@ -43,15 +43,18 @@ $config = [
             ],
         ],
         'db' => $db,
+
         'urlManager' => [
             'enablePrettyUrl' => true,
             'showScriptName' => false,
             'rules' => [
-                '<controller>/<action>/<id:\\d+>' => '<controller>/<action>'
+                '<controller>/<action>/<id:\\d+>' => '<controller>/<action>',
+                '<controller>/<action>/<name:\\w+>' => '<controller>/<action>'
             ],
         ],
     ],
     'params' => $params,
+    'defaultRoute' => 'gps/index',
 ];
 
 if (YII_ENV_DEV) {

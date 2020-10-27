@@ -2,9 +2,9 @@
 
 return [
     'class' => 'yii\db\Connection',
-    'dsn' => 'mysql:host=localhost;dbname=yii2basic',
-    'username' => 'root',
-    'password' => '',
+    'dsn' => 'mysql:host=yz403522.mysql.tools;dbname=yz403522_db',
+    'username' => 'yz403522_db',
+    'password' => 'GgDma6Ne',
     'charset' => 'utf8',
     'enableProfiling' => false,
     'enableLogging' => false,
