@@ -1,6 +1,9 @@
 #include <SoftwareSerial.h>
 #include "TinyGPS++.h"
+#include "U8glib.h"
+#include "rus5x7.h"
 
+U8GLIB_SSD1306_128X32 u8g (U8G_I2C_OPT_NONE);
 SoftwareSerial SIM800(8, 9);
 SoftwareSerial GPS(3, 4);
 TinyGPSPlus gpsPP;
@@ -8,6 +11,7 @@ TinyGPSPlus gpsPP;
 //byte GPS_PIN = 2;
 const String HTTP_URL = "AT+HTTPPARA=URL,http://1854993.yz403522.web.hosting-test.net/sim.php?",
              OK = "OK",
+             ERROR = "Error",
              AT = "AT",
              AT_CIMI = "AT+CIMI",
              AT_CREG = "AT+CREG?",
@@ -23,11 +27,14 @@ const String HTTP_URL = "AT+HTTPPARA=URL,http://1854993.yz403522.web.hosting-tes
              AT_GSN = "AT+GSN";
 bool initalized = 0,
      gpsIsFind = 0,
+   gprsOk = 0,
      modemReady = 0, // Готов ли модем
      enableEcho = 1; 
 
 String _response = "",
        OPERATOR = "",
+     displaySring0 = "",
+       displaySring1 = "",
        IMEI; // Переменная для хранения ответа модуля
 
 const unsigned int taktPerSec = 60000;
@@ -67,15 +74,18 @@ void updateCounters()
 
 void syncWithServer()
 {       
-     updateBatteryPower();
-       updateNetwork();
-       getSimCoordinates();
-       _response = sendATCommand(AT_SAPBR, true, true);
-       if (_response == OK) {
-           sendATCommand(AT_HTTPINIT, true, false);
-           sendATCommand(AT_HTTPPARA, true, false);
-           //sendATCommand("AT+HTTPSSL=1", true, false);
-       }
+    updateBatteryPower();
+    updateNetwork();
+    getSimCoordinates();
+     if (gprsOk == 0) {
+      _response = sendATCommand(AT_SAPBR, true, true);
+      if (_response == OK) {
+          gprsOk = 1;
+          sendATCommand(AT_HTTPINIT, true, false);
+          sendATCommand(AT_HTTPPARA, true, false);
+         //sendATCommand("AT+HTTPSSL=1", true, false);
+      }
+     }
         String url = HTTP_URL;
           if (gpsIsFind) {
             url += "g=" + String(flat, DEC) + "x" + String(flon, DEC);
@@ -89,8 +99,16 @@ void syncWithServer()
           url += "&b=" + String(batteryPower, DEC);
           url += "&n=" + String(network, DEC);
 
-       sendATCommand(url, true, false);
-       sendATCommand(AT_HTTPACTION, true, false);
+       _response = sendATCommand(url, true, true);
+     if (_response != OK) {
+       displaySring0 = ERROR;
+       displaySring1 = 'Send HTTP_URL';
+     }
+       _response = sendATCommand(AT_HTTPACTION, true, true);
+      if (_response != OK) {
+       displaySring0 = ERROR;
+       displaySring1 = 'Send AT_HTTPACTION';
+     }
 }
 
 // Инициализация интернета
@@ -102,10 +120,7 @@ void initInternet()
 }
 
 void setup() {
-  delay(30000); // Ждем запуска симки
-  //pinMode(GPS_PIN, OUTPUT);
-  //digitalWrite(GPS_PIN, HIGH); // включить GPS
-  //analogWrite(A3, 200);
+  drawLoading();
   Serial.begin(9600);
   SIM800.begin(9600);
   GPS.begin(9600);
@@ -120,10 +135,12 @@ void setup() {
 
 void loop() {
   if (modemReady) {
+  drawMainScreen();
     updateCounters();
   } else {
+  drawLoading();
     delay(10000);
-    
+    updateNetwork();
     if (checkModemReady())
         setModemReady();
   }
@@ -159,37 +176,7 @@ void gpsListener()
             if (gpsPP.altitude.isUpdated()) {
               flat = gpsPP.location.lat();
               flon = gpsPP.location.lng();
-              Serial.println(flat, 6); // Latitude in degrees (double)
-              Serial.println(flon, 6); // Longitude in degrees (double)
-              Serial.print(gpsPP.location.rawLat().negative ? "-" : "+");
-              Serial.println(gpsPP.location.rawLat().deg); // Raw latitude in whole degrees
-              Serial.println(gpsPP.location.rawLat().billionths);// ... and billionths (u16/u32)
-              Serial.print(gpsPP.location.rawLng().negative ? "-" : "+");
-              Serial.println(gpsPP.location.rawLng().deg); // Raw longitude in whole degrees
-              Serial.println(gpsPP.location.rawLng().billionths);// ... and billionths (u16/u32)
-              Serial.println(gpsPP.date.value()); // Raw date in DDMMYY format (u32)
-              Serial.println(gpsPP.date.year()); // Year (2000+) (u16)
-              Serial.println(gpsPP.date.month()); // Month (1-12) (u8)
-              Serial.println(gpsPP.date.day()); // Day (1-31) (u8)
-              Serial.println(gpsPP.time.value()); // Raw time in HHMMSSCC format (u32)
-              Serial.println(gpsPP.time.hour()); // Hour (0-23) (u8)
-              Serial.println(gpsPP.time.minute()); // Minute (0-59) (u8)
-              Serial.println(gpsPP.time.second()); // Second (0-59) (u8)
-              Serial.println(gpsPP.time.centisecond()); // 100ths of a second (0-99) (u8)
-              Serial.println(gpsPP.speed.value()); // Raw speed in 100ths of a knot (i32)
-              Serial.println(gpsPP.speed.knots()); // Speed in knots (double)
-              Serial.println(gpsPP.speed.mph()); // Speed in miles per hour (double)
-              Serial.println(gpsPP.speed.mps()); // Speed in meters per second (double)
-              Serial.println(gpsPP.speed.kmph()); // Speed in kilometers per hour (double)
-              Serial.println(gpsPP.course.value()); // Raw course in 100ths of a degree (i32)
-              Serial.println(gpsPP.course.deg()); // Course in degrees (double)
-              Serial.println(gpsPP.altitude.value()); // Raw altitude in centimeters (i32)
-              Serial.println(gpsPP.altitude.meters()); // Altitude in meters (double)
-              Serial.println(gpsPP.altitude.miles()); // Altitude in miles (double)
-              Serial.println(gpsPP.altitude.kilometers()); // Altitude in kilometers (double)
-              Serial.println(gpsPP.altitude.feet()); // Altitude in feet (double)
-              Serial.println(gpsPP.satellites.value()); // Number of satellites in use (u32)
-              Serial.println(gpsPP.hdop.value()); // Horizontal Dim. of Precision (100ths-i32)
+              
               gpsIsFind = true;
            }
         }
@@ -202,9 +189,7 @@ void gpsListener()
 //Проверка готовности модема
 bool checkModemReady()
 {
-  network = getValue(sendATCommand("AT+CSQ", true, false), ': ', 1).toInt();
-
-  return network > 0 ? true : false;
+  return network > 0 && network != 30 && network != 31 ? true : false;
 }
 
 // Установка готовности модема.
@@ -286,4 +271,80 @@ String getValue(String data, char separator, int index)
         }
     }
     return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
+}
+
+// Экран загрузки
+void drawLoading()
+{
+  u8g.firstPage();
+  do {
+  u8g.setFont(rus5x7);
+  u8g.setPrintPos(30, 10);
+  u8g.print("Загрузка...");
+
+  u8g.setFont(rus5x7);
+  u8g.setPrintPos(10, 25);
+  u8g.print(displaySring0);
+  } while (u8g.nextPage());
+}
+
+// Экран главный
+void drawMainScreen()
+{
+  u8g.firstPage();
+  do {
+  // ОПЕРАТОР  
+  u8g.setFont(rus5x7);
+  u8g.setPrintPos(0, 6);
+  u8g.print(OPERATOR);
+
+  // БАТАРЕЯ
+  u8g.drawFrame(110, 0, 15, 7);
+  u8g.drawBox(125,2,2,3);
+  int dec = map(batteryPower, 3300, 4150, 1, 13);
+  u8g.drawBox(111,1,dec,5);
+
+  // УРОВЕНЬ СИГНАЛА
+  if (network > 1)
+    u8g.drawLine(95, 4, 95, 6);
+  if (network > 8)
+    u8g.drawLine(97, 3, 97, 6);
+  if (network > 10)
+    u8g.drawLine(99, 2, 99, 6);
+  if (network > 13)
+    u8g.drawLine(101, 1, 101, 6);
+  if (network > 16)
+    u8g.drawLine(103, 0, 103, 6);
+  
+  // GPRS
+  if (gprsOk) {
+    u8g.drawLine(67, 7, 88, 7);
+    u8g.setFont(rus5x7);
+    u8g.setPrintPos(68, 6);
+    u8g.print("GPRS");
+  }
+  
+  // GPS
+  if (gpsIsFind) {
+    u8g.drawLine(45, 7, 60, 7);
+    u8g.setFont(rus5x7);
+    u8g.setPrintPos(46, 6);
+    u8g.print("GPS");
+  }
+
+  // MESSAGE
+  // 1 строка 25 символов
+  if (displaySring0 != "") {
+    u8g.setFont(rus5x7);
+    u8g.setPrintPos(0, 19);
+    u8g.print(displaySring0);
+  }
+
+  // 2 строка 25 символов
+  if (displaySring1 != "") {
+    u8g.setFont(rus5x7);
+    u8g.setPrintPos(0, 32);
+    u8g.print(displaySring1);
+  }
+  } while (u8g.nextPage());
 }
