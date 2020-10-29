@@ -9,42 +9,36 @@ SoftwareSerial GPS(3, 4);
 TinyGPSPlus gpsPP;
 //Пины управления
 //byte GPS_PIN = 2;
-const String HTTP_URL = "AT+HTTPPARA=URL,http://1854993.yz403522.web.hosting-test.net/sim.php?",
-             OK = "OK",
-             ERROR = "Error",
-             AT = "AT",
-             AT_CIMI = "AT+CIMI",
-             AT_CREG = "AT+CREG?",
-             AT_SAPBR = "AT+SAPBR=1,1",
-             AT_HTTPINIT = "AT+HTTPINIT",
-             AT_HTTPPARA = "AT+HTTPPARA=CID,1",
-             AT_HTTPACTION = "AT+HTTPACTION=0",
-             AT_SET_GPRS = "AT+SAPBR=3,1,Contype,GPRS",
-             AT_CONFIG_INTERNET = "AT+CSTT=\"internet\",\"\",\"\"",
-             AT_ATE = "ATE0",
-             AT_CREG_SET = "AT+CREG=2",
-             AT_GSMBUSY = "AT+GSMBUSY=1",
-             AT_GSN = "AT+GSN";
+const char   HTTP_URL[] = "AT+HTTPPARA=URL,http://1854993.yz403522.web.hosting-test.net/sim.php?",
+             OK[] = "OK",
+             ERROR[] = "Error",
+             AT[] = "AT",
+             AT_CIMI[] = "AT+CIMI",
+             AT_CREG[] = "AT+CREG?",
+             AT_SAPBR[] = "AT+SAPBR=1,1",
+             AT_HTTPINIT[] = "AT+HTTPINIT",
+             AT_HTTPPARA[] = "AT+HTTPPARA=CID,1",
+             AT_HTTPACTION[] = "AT+HTTPACTION=0",
+             AT_SET_GPRS[] = "AT+SAPBR=3,1,Contype,GPRS",
+             AT_CONFIG_INTERNET[] = "AT+CSTT=\"internet\",\"\",\"\"",
+             AT_ATE[] = "ATE0",
+             AT_CREG_SET[] = "AT+CREG=2",
+             AT_GSMBUSY[] = "AT+GSMBUSY=1",
+             AT_GSN[] = "AT+GSN";
 bool initalized = 0,
      gpsIsFind = 0,
-   gprsOk = 0,
+     gprsOk = 0,
      modemReady = 0, // Готов ли модем
      enableEcho = 1; 
 
 String _response = "",
        OPERATOR = "",
-     displaySring0 = "",
+       displaySring0 = "",
        displaySring1 = "",
        IMEI; // Переменная для хранения ответа модуля
 
-const unsigned int taktPerSec = 60000;
-
 int batteryPower = 0,
     network = 0;
-
-// Эта хуйня делает 60000 цыклов в секунду
-long  initalizedCounter = 0,
-      checkGPSCounter = 18000000;
 
 // GPS хуйня
     float flat = 0.0, flon = 0.0;
@@ -62,7 +56,6 @@ void getSimCoordinates()
     SIM_GPS += getValue(_response, ',', 2);
     SIM_GPS += getValue(_response, ',', 3);
     SIM_GPS.replace("\"", "");
-    Serial.println(SIM_GPS);
 }
 
 void updateCounters()
@@ -79,8 +72,8 @@ void syncWithServer()
     getSimCoordinates();
      if (gprsOk == 0) {
       _response = sendATCommand(AT_SAPBR, true, true);
+      gprsOk = 1;
       if (_response == OK) {
-          gprsOk = 1;
           sendATCommand(AT_HTTPINIT, true, false);
           sendATCommand(AT_HTTPPARA, true, false);
          //sendATCommand("AT+HTTPSSL=1", true, false);
@@ -89,7 +82,6 @@ void syncWithServer()
         String url = HTTP_URL;
           if (gpsIsFind) {
             url += "g=" + String(flat, DEC) + "x" + String(flon, DEC);
-            gpsIsFind = false;
           }
           else{
             url += "s=" + SIM_GPS;
@@ -102,13 +94,16 @@ void syncWithServer()
        _response = sendATCommand(url, true, true);
      if (_response != OK) {
        displaySring0 = ERROR;
-       displaySring1 = 'Send HTTP_URL';
+       displaySring1 = "HTTP_URL_SET";
      }
        _response = sendATCommand(AT_HTTPACTION, true, true);
       if (_response != OK) {
        displaySring0 = ERROR;
-       displaySring1 = 'Send AT_HTTPACTION';
+       displaySring1 = "HTTP_URL_SEND";
      }
+
+     gpsIsFind = false;
+     drawMainScreen();
 }
 
 // Инициализация интернета
@@ -135,10 +130,10 @@ void setup() {
 
 void loop() {
   if (modemReady) {
-  drawMainScreen();
+    drawMainScreen();
     updateCounters();
   } else {
-  drawLoading();
+    drawLoading();
     delay(10000);
     updateNetwork();
     if (checkModemReady())
@@ -163,7 +158,7 @@ void gpsListener()
             lastMillis = millis();
             whaitingFor = (millis() - startGPS) / 1000;
         }
-        if (whaitingFor > 0 && whaitingFor % 60 == 0) {
+        if (whaitingFor > 0 && whaitingFor % 30 == 0) {
             SIM800.listen();
             syncWithServer();
             GPS.listen();
@@ -189,7 +184,7 @@ void gpsListener()
 //Проверка готовности модема
 bool checkModemReady()
 {
-  return network > 0 && network != 30 && network != 31 ? true : false;
+  return network > 0 ? true : false;
 }
 
 // Установка готовности модема.
@@ -202,39 +197,33 @@ void setModemReady()
 }
 
 String sendATCommand(String cmd, bool waiting, bool boolResult) {
-  String _resp = "";                            // Переменная для хранения результата
   if (enableEcho)
     Serial.println(cmd);                          // Дублируем команду в монитор порта
 
   SIM800.println(cmd);                          // Отправляем команду модулю
   if (waiting) {                                // Если необходимо дождаться ответа...
-    _resp = waitResponse();                     // ... ждем, когда будет передан ответ
-    // Если Echo Mode выключен (ATE0), то эти 3 строки можно закомментировать
-    if (_resp.startsWith(cmd)) {  // Убираем из ответа дублирующуюся команду
-      _resp = _resp.substring(_resp.indexOf("\r", cmd.length()) + 2);
-    }
-
+    _response = waitResponse();                     // ... ждем, когда будет передан ответ
      if (enableEcho)
-        Serial.println(_resp);                      // Дублируем ответ в монитор порта
+        Serial.println(_response);                      // Дублируем ответ в монитор порта
 
      if (!boolResult)
-        _resp.replace("OK", "");
+        _response.replace(OK, "");
   }
-  _resp.trim();
-  return _resp;                                 // Возвращаем результат. Пусто, если проблема
+  _response.trim();
+  return _response;                                 // Возвращаем результат. Пусто, если проблема
 }
 
 String waitResponse() {                         // Функция ожидания ответа и возврата полученного результата
-  String _resp = "";                            // Переменная для хранения результата
+  String _response = "";                            // Переменная для хранения результата
   long _timeout = millis() + 60000;             // Переменная для отслеживания таймаута (10 секунд)
   while (!SIM800.available() && millis() < _timeout)  {}; // Ждем ответа 10 секунд, если пришел ответ или наступил таймаут, то...
   if (SIM800.available()) {                     // Если есть, что считывать...
-    _resp = SIM800.readString();                // ... считываем и запоминаем
+    _response = SIM800.readString();                // ... считываем и запоминаем
   }
   else {                                        // Если пришел таймаут, то...
-    Serial.println("Timeout...");               // ... оповещаем об этом и...
+    Serial.println('Timeout...');               // ... оповещаем об этом и...
   }
-  return _resp;                                 // ... возвращаем результат. Пусто, если проблема
+  return _response;                                 // ... возвращаем результат. Пусто, если проблема
 }
 
 // Обновляет значения уровня сети.
@@ -280,7 +269,7 @@ void drawLoading()
   do {
   u8g.setFont(rus5x7);
   u8g.setPrintPos(30, 10);
-  u8g.print("Загрузка...");
+  u8g.print("Loading...");
 
   u8g.setFont(rus5x7);
   u8g.setPrintPos(10, 25);
