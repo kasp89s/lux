@@ -1,9 +1,21 @@
-version: '2'
+version: "3.8"
 services:
-  php:
-    image: yiisoftware/yii2-php:7.1-apache
-    volumes:
-      - ~/.composer-docker/cache:/root/.composer/cache:delegated
-      - ./:/app:delegated
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx.dockerfile
     ports:
-      - '8000:80'
+      - 8098:80
+    links:
+      - fpm
+    volumes:
+      - ./:/var/www/lux
+  # сам проект
+  fpm:
+    tty: true
+    build:
+      context: .
+      dockerfile: docker/fpm.dockerfile
+    volumes:
+      - ./:/var/www/lux
+#    command: composer install & tail -f /dev/null

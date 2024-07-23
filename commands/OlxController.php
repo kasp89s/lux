@@ -14,7 +14,7 @@ class OlxController extends Controller
     protected $_informParams = [
         'notebooks' => [
             'chatID' => '-1001307607119',
-            'listLink' => 'https://www.olx.ua/elektronika/noutbuki-i-aksesuary/noutbuki/?search%5Bfilter_float_price%3Ato%5D=1000',
+            'listLink' => 'https://www.olx.ua/uk/elektronika/q-BLUETTI/?currency=UAH&search%5Bfilter_float_price:from%5D=1000&search%5Bfilter_float_price:to%5D=10000&search%5Bfilter_enum_type%5D%5B0%5D=ch_station',
         ],
 //        'phones' => [
 //            'chatID' => '-1001359657814',
@@ -24,14 +24,14 @@ class OlxController extends Controller
 //            'chatID' => '-1001483356841',
 //            'listLink' => 'https://www.olx.ua/elektronika/kompyutery-i-komplektuyuschie/komplektuyuschie-i-aksesuary/videokarty/?search%5Bfilter_float_price%3Ato%5D=1000',
 //        ],
-        'desktop' => [
-            'chatID' => '-1001405907012',
-            'listLink' => 'https://www.olx.ua/elektronika/igry-i-igrovye-pristavki/pristavki/q-playstation-4/?search%5Bfilter_float_price%3Ato%5D=2000',
-        ],
-        'monitor' => [
-            'chatID' => '-1001364285268',
-            'listLink' => 'https://www.olx.ua/list/q-Philips-32PFL9632D/',
-        ],
+//        'desktop' => [
+//            'chatID' => '-1001405907012',
+//            'listLink' => 'https://www.olx.ua/elektronika/igry-i-igrovye-pristavki/pristavki/q-playstation-4/?search%5Bfilter_float_price%3Ato%5D=2000',
+//        ],
+//        'monitor' => [
+//            'chatID' => '-1001364285268',
+//            'listLink' => 'https://www.olx.ua/list/q-Philips-32PFL9632D/',
+//        ],
 //        'tv' => [
 //            'chatID' => '-1001206242449',
 //            'listLink' => 'https://www.olx.ua/elektronika/tv-videotehnika/televizory/?search%5Bfilter_float_price%3Ato%5D=1000',
@@ -118,7 +118,7 @@ class OlxController extends Controller
     protected function sendMessage($botHash, $chatID, $text)
     {
         $client = new Client();
-        $client->createRequest()
+        $response = $client->createRequest()
             ->setMethod('post')
             ->setUrl('https://api.telegram.org/bot' . $botHash . '/sendMessage')
             ->setHeaders([
@@ -130,6 +130,8 @@ class OlxController extends Controller
                 'text' => $text
             ]))
             ->send();
+
+//        var_dump($response->content);
     }
 
     /**
@@ -175,38 +177,41 @@ class OlxController extends Controller
         return $isNew;
     }
 
+    private function extractAdsData($content)
+    {
+        $content = strstr($content, 'window.__PRERENDERED_STATE__');
+        $content = strstr($content, 'window.__TAURUS__', true);
+        $content = trim($content);
+        $content = str_replace('window.__PRERENDERED_STATE__= "', '', $content);
+        $content = str_replace('";', '', $content);
+        $content = stripslashes($content);
+
+        $json = json_decode($content, true);
+
+        return $json['listing']['listing']['ads'];
+    }
+
     protected function processQueue($html)
     {
-        preg_match_all('|<table(.*)</table>|isU', $html, $matches);
+        $ads = $this->extractAdsData($html);
 
-        foreach ($matches[0] as $item) {
+        foreach ($ads as $ad) {
+            if ($ad['isPromoted'] === true)
+                continue;
+
             $data = [];
-            preg_match('|<p class="price">(.*)</p>|isU', $item, $out);
-            if (empty($out[0]))
-                continue;
 
-            preg_match('|<span class="inlblk icon paid type2 abs zi2" title="ТОП">|isU', $item, $top);
+            $data['name'] = '<i>' . $ad['title'] . '</i>' . "\n";
+            $data['price'] = '<b>' . $ad['price']['displayValue'] . '</b>' . "\n";
+            $data['place'] =  $ad['location']['pathName'] . "\n";
+            $data['image'] = "[ ](" . $ad['photos'][0] . ") \n";
+            $data['link'] = $ad['url'] . "\n";
 
-            if (!empty($top))
-                continue;
+            $isNew = $this->saveRecord($ad['id']);
 
-            preg_match('|<img class="fleft" src="(.*)" alt="(.*)">|isU', $item, $match);
-            preg_match_all('|href="(.*)"|isU', $item, $match1);
-            preg_match('|<p class="lheight16">(.*)</p>|isU', $item, $match2);
-
-            if (empty($match[2]))
-                continue;
-
-            $data['name'] = '<i>' . $match[2] . '</i>';
-            $data['price'] = '<b>' . preg_replace('/[^0-9]/', '', $out[0]) . ' грн</b>';
-            $data['place'] = trim(preg_replace('/\s+/', ' ', strip_tags($match2[0])));
-            $data['image'] = $match[1];
-            $data['link'] = $match1[1][1];
-
-            $isNew = $this->saveRecord($data['image']);
-
-            if ($isNew)
+            if ($isNew){
                 $this->sendMessage($this->_initialParams['hash'], $this->_initialParams['chatID'], implode(' ', $data));
+            }
         }
     }
 }
