@@ -1,0 +1,1 @@
+*/10 10-23 * * * php /var/www/lux/yii olx/ads-inform >> /var/log/cron.log
